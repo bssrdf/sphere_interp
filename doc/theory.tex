@@ -1,0 +1,254 @@
+\documentclass[12pt,a4paper]{article}
+
+%----------------Package imports-------------------
+\usepackage{graphicx}
+\usepackage{algpseudocode}
+\usepackage{amssymb}
+\usepackage{amsmath}
+
+%------------Page Definition-----------------------
+\usepackage[margin=1in]{geometry}
+
+%----------------- SETUP PAGE HEADER ------------------------
+\usepackage{fancyhdr}
+\pagenumbering{arabic}
+\pagestyle{fancy}
+
+%----------------- DEFINE STUFF -----------------
+\newcommand{\eps}{\varepsilon}
+\newcommand{\lap}{\bigtriangleup}
+\newcommand{\mean}{\mathrm{mean}}
+\renewcommand{\algorithmicrequire}{\textbf{Input:}}
+\renewcommand{\algorithmicensure}{\textbf{Output:}}
+
+\begin{document}
+
+%------------TITLE---------------
+\thispagestyle{empty}
+\begin{center}
+\rule{\textwidth}{.5mm} \\[0.8cm]
+{\huge \bfseries Smooth Spherical Interpolation\\ --Theory--}\\[.4cm]
+\rule{\textwidth}{.5mm} \\[1.5cm]
+
+{\Large \textsl{Author}\\[-.6cm]\rule{60pt}{.2mm} \\[.4cm] Peter M. Solfest}
+\newpage
+\end{center}
+%------------End TITLE------------------------
+\section{Introduction}
+Given a sparse set of data points around a sphere,
+it is convenient to have an analytical function fitting
+the data which allows for interpolation to any part of the sphere.
+Much work has been done representing a function in spherical harmonics,
+which can then be used to interpolate.
+
+But given a sparse set of data, one cannot sample the function at
+arbitrary points (e.g. on a regularly spaced grid).
+Thus techniques involving exact quadrature fail.
+Furthermore, it is not clear that an inexact quadrature scheme can
+be used given the arbitrary nature of real world locations.
+
+Below is presented a method which fits spherical harmonics
+to a desired degree, which minimizes a function involving both
+smoothness and squared difference between the fit and the data.
+This smoothing not only allows for a determination of an
+arbitrarily large set of spherical harmonics, but also acts
+to negate the large oscillations (gibbs phenomenon) introduced
+by spherically fitting data which may exhibit wide variations.
+
+Furthermore, the algorithm presented at the end can be computed
+utilizing an iterative scheme involving only matvecs, saving
+the computational expense of solving a least squares problem.
+
+\section{Theory}
+Let there be $s$ sample points, and $b$ the number of basis functions used.
+Traditionally spherical harmonics are labeled $Y_{l,m}$, so an easy map for
+indices is $i = l (l+1) + m$, so $Y_{l,m} = Y_i$.
+Our data points will be labeled $f = f[j] = x_j$ for each sampled location $x_j$.
+
+The goal is to find a set of coefficients $c_i$ such that at an arbitrary point $x$:
+\[
+    f(x) = \sum_{i=0}^{(l+1)^2} c_i \cdot Y_i(x)
+\]
+where $f(x_j) = f_j + \eps$ for small $\eps$ is desired.
+
+In order to do this, we need a vandermonde like matrix, $M \in \mathbb{R}^ {s \times b}$, such that
+\[
+    M_{j,i} = Y_i(s_j)
+\]
+
+Potentially the most straightforward way to form the coefficients $c_i$ is by solving
+the least squares problem
+\[
+    M c = f
+\]
+This is equivalent to solving\footnote{$\|\cdot\| = \|\cdot\|_2$}
+\[
+    \min_c \| M c - f \|
+\]
+The problem with this is $b$ can grow to infinity, creating increasingly overdetermined
+systems.
+Furthermore, if a bad data point at $x_i$ is near $x_j$, but $f_i$ is far from $x_j$, the
+least squares solution will match these incredibly well, leading to large oscillations.
+
+To prevent this, we can choose a better objective function to minimize, namely
+\begin{equation}\label{cont_obj}
+    \min_c \left(\frac{1}{2}\| \lap f \|^2 + \lambda \| M c - f \|^2\right)
+\end{equation}
+Where $\lambda \in [0,\infty)$ determines what we are interested in,
+and the $\frac{1}{2}$ is introduced for convenience.
+Note that $\lambda = 0$ corresponds to a perfectly smooth function, namely
+the mean of $f_j$.
+Whereas $\lambda = \infty$ corresponds to the least squares solution.
+
+One of the beauties of this is that spherical harmonics are eigenfunctions
+of the laplacians, so we get
+\[
+    \lambda f = B c
+\]
+where $B \in \mathbb{Z}^{b \times b}$ is a diagonal matrix 
+such that $B_{i,i} = l_i^2 \cdot (l_i+1)^2$,
+where $l_i$ is the $l$ corresponding to $Y_i$.
+
+Thus equation \ref{cont_obj} yields equation \ref{obj_func} when discretized.
+\begin{equation}\label{obj_func}
+    \min_c \left( \frac{1}{2} c^t B c + \lambda (Mc - f)^T (Mc - f) \right)
+\end{equation}
+This is a quadratic equation, so differentiating and setting equal to zero yields
+that the solution\footnote{Note that differentiating twice yields $B + 2 \lambda M^T M$ which
+is positive definite. Thus it is indeed the minimum as the only solution.} is
+\[
+    B c + 2 \lambda M^T M c - 2 \lambda M^T f = 0
+\]
+Rearranging yields equation \ref{min_sol}
+\begin{equation}\label{min_sol}
+    \dfrac{1}{2\lambda} c = B^{-1} M^T f - B^{-1} M^T M c
+\end{equation}
+
+\section{Iteration}
+This arrangement immediately suggests an iterative technique for solving this problem.
+Namely,
+\begin{equation}\label{iter_alg}
+    c_i = 2\lambda \left( B^{-1} M^T f - B^{-1} M^T M c_{i-1} \right)
+\end{equation}
+Also, define $c \cdot e_1 = \mean(f_i)$.
+This lets our iterations ignore the $l=0, m=0$ term and only add it back in
+when reconstructing $f$.
+Also, $B^{-1}$ is trivial to calculate since $B$ is diagonal.
+Furthermore, the positive term on the right is constant, so only needs to
+be computed once, leaving a mere 2 matvecs per iteration in the solution.
+Thus a reasonable starting point is $c_0 = 0$, 
+or equivalently $c_1 = 2 \lambda B^{-1} M^T f$.
+
+\subsection{Convergence analysis}
+First, consider
+\begin{align}\label{iter_eqn}
+    \| c_{i+1} - c_i\| &= \| 2 \lambda B^{-1} M^T f - 2 \lambda B^{-1} M^T M c_i - c_i\|\\
+    &= \| 2 \lambda B^{-1}M^T f - (I + 2 \lambda B^{-1}) M^T M) c_i \|
+\end{align}
+Furthermore,
+\begin{align}
+\|c_{i+2} - c_{i+1}\| &= \| 2 \lambda B^{-1} M^T f - (I + 2 \lambda B^{-1} M^T M) c_{i+1} \| \\
+&= \| 2 \lambda B^{-1} M^T f - (I + 2 \lambda B^{-1} M^T M) 2 \lambda (B^{-1} M^T f - B^{-1} M^T M c_i)\| \\
+&=\| 2 \lambda (B^{-1}M^T f - B^{-1}M^Tf + B^{-1}M^TMc_i - 2\lambda B^{-1}M^TMB^{-1}M^Tf + \\
+&  2\lambda B^{-1}M^TMB^{-1}M^TMc_i) \| \\
+&\leq 2 \lambda \|B^{-1}M^TM\| \cdot \|2\lambda B^{-1}M^Tf - (I + 2\lambda B^{-1} M^TM)c_i\| \\
+&\leq 2 \lambda \|B^{-1}M^TM\| \cdot \|c_{i+1} - c_i \|
+\end{align}
+Thus using that $\|B^{-1}\| = \dfrac{1}{4}$, since $B$ is diagonal and it's smallest value
+is $1^2(1+1)^2$ since the sole $l=0$ term has been eliminated by enforcing $c_0 = \mean(f)$.
+\begin{align}
+\dfrac{\|c_{i+2} - c_{i+1}\|}{\|c_{i+1} - c_i\|} \leq 2 \lambda \|B^{-1}\| \|M^T M\|
+= \dfrac{\lambda}{2}\|M^T M\| = \dfrac{\lambda}{2} \|M\|^2
+\end{align}
+Since convergence happens when
+\[
+\dfrac{\|c_{i+2} - c_{i+1}\|}{\|c_{i+1} - c_i\|} < 1
+\]
+convergence happens when
+\begin{equation}\label{l_ineq}
+\|M\| < \sqrt{2/\lambda}
+\end{equation}
+Recall that the smaller $\lambda$ is, the smoother the fit is.
+So this places a lower limit on how smooth the fit must be.
+
+\subsection{A quick note on choosing $\lambda$}
+By definition, we have that
+\[
+    \| M \| = \| M^T \| \ge \dfrac{\|M^Tx\|}{\|x\|} \;\;\; \forall \; x 
+\]
+\[
+    \| M \| \ge \dfrac{\|M^Tf\|}{\|f\|}
+\]
+Thus we can form an initial guess for a $\lambda$ such that \ref{iter_eqn} by
+taking
+\[
+    \lambda = \dfrac{\|f\|^2}{\|M^T f\|} = \dfrac{f^T f}{(M^T f)^T M^T f}
+\]
+Which is garunteed to be too large, but gives a good starting point so long as
+$f$ is not in the Null Space of $M$
+
+\newpage
+\subsection{The algorithm}
+With a given shrinking factor $\alpha < 1$ and convergence tolerance $\eps$,
+we can form an iterative algorithm as follows:
+\begin{algorithmic}
+    \Require $\alpha$, $\eps$, $M$, $f$ 
+    \Ensure $c$
+    \State $c_p \gets 0$
+    \State $c_n \gets 2 \lambda B^{-1} M^T f$
+    \State $\lambda \gets \dfrac{f^T f}{(M^T f)^T M^T f}$
+    \State $i \gets 1$
+    \State $\Delta_n \gets \|c_n - c_p\|^2$
+    \Repeat
+        \State $\Delta_p \gets \Delta_n$
+        \State $c_p \gets c_n$
+        \State $c_n \gets 2\lambda \left( B^{-1} M^T f - B^{-1} M^T M c_p\right)$
+        \State $\Delta_n \gets \|c_n - c_p\|^2$
+        \While{$\Delta_n/\Delta_p \ge 1$}
+            \State $\lambda \gets \alpha \cdot \lambda$
+            \State $c_n \gets 2\lambda \left( B^{-1} M^T f - B^{-1} M^T M c_p\right)$
+            \State $\Delta_n \gets \|c_n - c_p\|^2$
+        \EndWhile
+    \Until{$\Delta_n < \eps$}
+    \State $c \gets c_n$
+\end{algorithmic}
+Note that $\lambda$ monotonically decreases by a factor of $\alpha$ each time
+the iteration \ref{iter_eqn} fails to get closer to the true answer.
+There are considerable variations available for how to shrink $\lambda$ effectively,
+but the $\alpha$ shrinking outlined above should be sufficeint.
+
+This will ultimately converge to the largest $\lambda$ satisfying condition \ref{l_ineq}.
+Thus a smoother result could be arrived at via modifying how $\alpha$ behaves.
+
+\newpage
+\subsection{Implementation notes}
+\subsubsection{Spherical harmonics}
+Let $k = l (l+1) + m$, then the spherical harmonics have
+\[
+    Y_k(\theta, \phi) = 
+    \begin{cases}
+        \sqrt{2} \sqrt{\dfrac{2l+1}{4 \pi}} \sqrt{\dfrac{(l-|m|)!}{(l+|m|)!}} P^{|m|}_l \left(\cos(\theta)\right) \sin(|m|\phi) & \text{if } m < 0\\
+        \sqrt{\dfrac{2l+1}{4 \pi}} P^{0}_l \left(\cos(\theta)\right) & \text{if } m = 0\\
+        \sqrt{2} \sqrt{\dfrac{2l+1}{4 \pi}} \sqrt{\dfrac{(l-m)!}{(l+m)!}} P^{m}_l \left(\cos(\theta)\right) \cos(|m|\phi) & \text{if } m > 0\\
+    \end{cases}
+\]
+Where $P^m_l \left(\cos(\theta) \right)$ can be formed using the following procedure
+\begin{algorithmic}
+    \Require $L$, $\theta$
+    \State $P_0^0 \gets 0$
+    \For{$l = 0,L-1$}
+        \State $P_{l+1}^{l+1}() \gets -(2l+1)\sin(\theta)P_l^l$
+        \For{$m=0,l$}
+            $P_{l+1}^m \gets \dfrac{(2l+1)\cos(\theta)P_l^m - (l+m)P_{l-1}^m}{l-m+1}$
+        \EndFor
+    \EndFor
+\end{algorithmic}
+Note that this must be done for each $\theta$ in the data set.
+
+
+
+
+
+
+
+\end{document}
