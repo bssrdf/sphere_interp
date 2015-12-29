@@ -37,25 +37,27 @@
 \section{Introduction}
 Given a sparse set of data points around a sphere,
 it is convenient to have an analytical function fitting
-the data which allows for interpolation to any part of the sphere.
+the data which allows for which to interpolate to any point on the sphere.
 Much work has been done representing a function in spherical harmonics,
-which can then be used to interpolate.
+which can then be used for such interpolations.
 
-But given a sparse set of data, one cannot sample the function at
-arbitrary points (e.g. on a regularly spaced grid).
+Techniques using exact quadrature exist, but
+require data available on a regularly or gaussian spaced grid.
+For sparse real world data, this spacing is often not available.
 Thus techniques involving exact quadrature fail.
 Furthermore, it is not clear that an inexact quadrature scheme can
 be used given the arbitrary nature of real world locations.
 
-Below is presented a method which fits spherical harmonics
-to a desired degree, which minimizes a function involving both
-smoothness and squared difference between the fit and the data.
+Presented below is a method which fits arbitrary data to
+spherical harmonics of specified degree, minimizing a function
+involving terms measuring smoothness in addition to the least
+squares fitting.
 This smoothing not only allows for a determination of an
 arbitrarily large set of spherical harmonics, but also acts
-to negate the large oscillations (gibbs phenomenon) introduced
+to minimize the large oscillations (gibbs phenomenon) introduced
 by spherically fitting data which may exhibit wide variations.
 
-Furthermore, the algorithm presented at the end can be computed
+Furthermore, the final algorithm can be computed
 utilizing an iterative scheme involving only matvecs, saving
 the computational expense of solving a least squares problem.
 
