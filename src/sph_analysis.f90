@@ -46,7 +46,7 @@ SUBROUTINE toab(coef, mean, a, b)
     end do
 END SUBROUTINE toab
 
-!SUBROUTINE scalef(f, mean, scalefact)
+SUBROUTINE scalef(f, mean, scalefact)
     ! Scales f to values of (-1,1)
     !
     ! inputs:
