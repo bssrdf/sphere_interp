@@ -181,13 +181,13 @@ By definition, we have that
 \[
     \| M \| \ge \dfrac{\|M^Tf\|}{\|f\|}
 \]
+So we can speculate that $\|M\| \approx \frac{1}{2} \dfrac{\|M^Tf\|}{\|f\|}$ will
+suffice to serve the following purpose: 
 Thus we can form an initial guess for a $\lambda$ such that \ref{iter_eqn} by
 taking
 \[
-    \lambda = \dfrac{\|f\|^2}{\|M^T f\|} = \dfrac{f^T f}{(M^T f)^T M^T f}
+    \lambda = \dfrac{\|f\|^2}{\|M^T f\|} = \dfrac{1}{2} \dfrac{2 \cdot f^T f}{(M^T f)^T M^T f}
 \]
-Which is garunteed to be too large, but gives a good starting point so long as
-$f$ is not in the Null Space of $M$
 
 \newpage
 \subsection{The algorithm}
