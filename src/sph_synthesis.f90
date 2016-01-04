@@ -63,6 +63,9 @@ FUNCTION synthesis(nlat, nlon, coef) result(vals)
     locs(2,nlocs-1) = 0.0
 
     ! form vand_sph for regular grid
+    ! Note that this isn't exactly efficient since
+    ! form_vand_sph_mat does not assume any theta's are equal,
+    ! which in this case a whole bunch are...
     M_T = form_vand_sph_mat(int(sqrt(size(coef) - 1.0)), locs, nlocs)
 
     ! calculate values
