@@ -38,8 +38,8 @@ FUNCTION form_vand_sph_mat(lmax,locs,nlocs) result(M_T)
 
     ! inputs
     integer, intent(in) :: lmax
-    real, intent(in), dimension(2,*) :: locs
     integer, intent(in) :: nlocs
+    real, intent(in), dimension(2,nlocs) :: locs
 
     ! output
     real, allocatable, dimension(:, :) :: M_T
