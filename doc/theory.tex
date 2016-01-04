@@ -189,9 +189,8 @@ taking
     \lambda = \dfrac{\|f\|^2}{\|M^T f\|} = \dfrac{1}{2} \dfrac{2 \cdot f^T f}{(M^T f)^T M^T f}
 \]
 
-\newpage
 \subsection{The algorithm}
-With a given shrinking factor $\alpha < 1$ and convergence tolerance $\eps$,
+With a given scale factor $\alpha > 1$ and convergence tolerance $\eps$,
 we can form an iterative algorithm as follows:
 \begin{algorithmic}
     \Require $\alpha$, $\eps$, $M$, $f$ 
@@ -201,28 +200,27 @@ we can form an iterative algorithm as follows:
     \State $\lambda \gets \dfrac{f^T f}{(M^T f)^T M^T f}$
     \State $i \gets 1$
     \State $\Delta_n \gets \|c_n - c_p\|^2$
-    \Repeat
+    \While{$\Delta_n \ge \eps$}
         \State $\Delta_p \gets \Delta_n$
         \State $c_p \gets c_n$
         \State $c_n \gets 2\lambda \left( B^{-1} M^T f - B^{-1} M^T M c_p\right)$
         \State $\Delta_n \gets \|c_n - c_p\|^2$
         \While{$\Delta_n/\Delta_p \ge 1$}
-            \State $\lambda \gets \alpha \cdot \lambda$
+            \State $\lambda \gets \lambda / \alpha$
             \State $c_n \gets 2\lambda \left( B^{-1} M^T f - B^{-1} M^T M c_p\right)$
             \State $\Delta_n \gets \|c_n - c_p\|^2$
         \EndWhile
-    \Until{$\Delta_n < \eps$}
+    \EndWhile
     \State $c \gets c_n$
 \end{algorithmic}
 Note that $\lambda$ monotonically decreases by a factor of $\alpha$ each time
-the iteration \ref{iter_eqn} fails to get closer to the true answer.
+the iteration~\ref{iter_eqn} fails to get closer to the true answer.
 There are considerable variations available for how to shrink $\lambda$ effectively,
 but the $\alpha$ shrinking outlined above should be sufficeint.
 
-This will ultimately converge to the largest $\lambda$ satisfying condition \ref{l_ineq}.
+This will ultimately converge to the largest $\lambda$ satisfying condition~\ref{l_ineq}.
 Thus a smoother result could be arrived at via modifying how $\alpha$ behaves.
 
-\newpage
 \subsection{Implementation notes}
 \subsubsection{Spherical harmonics}
 Let $k = l (l+1) + m$, then the spherical harmonics have
@@ -239,18 +237,13 @@ Where $P^m_l \left(\cos(\theta) \right)$ can be formed using the following proce
     \Require $L$, $\theta$
     \State $P_0^0 \gets 0$
     \For{$l = 0,L-1$}
-        \State $P_{l+1}^{l+1}() \gets -(2l+1)\sin(\theta)P_l^l$
-        \For{$m=0,l$}
+        \State $P_{l+1}^{l+1} \gets -(2l+1)\sin(\theta)P_l^l$
+        \For{$m=0,l$}\\
             $P_{l+1}^m \gets \dfrac{(2l+1)\cos(\theta)P_l^m - (l+m)P_{l-1}^m}{l-m+1}$
         \EndFor
     \EndFor
 \end{algorithmic}
 Note that this must be done for each $\theta$ in the data set.
-
-
-
-
-
 
 
 \end{document}
