@@ -45,10 +45,11 @@ SUBROUTINE interpolation(nlocs, in_data, nlat, nlon, interpolated_values, lambda
     !       inf -- harm. sph. representation is least squares fit
     !
     !   optional inputs:
-    !   lmax -- integer -- 2*nlocs --
+    !   lmax -- integer -- CEILING(sqrt(2*nlocs)) --
     !     maximum degree of spherical harmonics
-    !     Default value should capture lots of high frequencies
-    !     which the interpolation algorithm will smooth out
+    !     Default value garuntees at least twice as many basis functions
+    !     as data points are used - giving plenty of high frequency
+    !     representations which the interpolation algorithm will smooth out
 
     ! inputs
     integer, intent(in) :: nlocs
@@ -68,7 +69,7 @@ SUBROUTINE interpolation(nlocs, in_data, nlat, nlon, interpolated_values, lambda
 
     ! define default lmax if needed
     ! TODO: figure out a good default value for lmax
-    lmax = 2*nlocs
+    lmax = CEILING(SQRT(2.0*nlocs))
     ! This will allow a lot of high frequency noise which should
     ! get smoothed out by algorithm
     if (present(lmax_in)) lmax = lmax_in
