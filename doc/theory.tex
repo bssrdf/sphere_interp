@@ -199,16 +199,16 @@ we can form an iterative algorithm as follows:
     \State $c_n \gets 2 \lambda B^{-1} M^T f$
     \State $\lambda \gets \dfrac{f^T f}{(M^T f)^T M^T f}$
     \State $i \gets 1$
-    \State $\Delta_n \gets \|c_n - c_p\|^2$
+    \State $\Delta_n \gets \|c_n - c_p\|$
     \While{$\Delta_n \ge \eps$}
         \State $\Delta_p \gets \Delta_n$
         \State $c_p \gets c_n$
         \State $c_n \gets 2\lambda \left( B^{-1} M^T f - B^{-1} M^T M c_p\right)$
-        \State $\Delta_n \gets \|c_n - c_p\|^2$
+        \State $\Delta_n \gets \|c_n - c_p\|$
         \While{$\Delta_n/\Delta_p \ge 1$}
             \State $\lambda \gets \lambda / \alpha$
             \State $c_n \gets 2\lambda \left( B^{-1} M^T f - B^{-1} M^T M c_p\right)$
-            \State $\Delta_n \gets \|c_n - c_p\|^2$
+            \State $\Delta_n \gets \|c_n - c_p\|$
         \EndWhile
     \EndWhile
     \State $c \gets c_n$
