@@ -12,14 +12,14 @@ IMPLICIT NONE
 
 CONTAINS
 
-SUBROUTINE interpolation(nlocs, in_data, nlat, nlon, interpolated_values, lambda, lmax_in)
+SUBROUTINE interpolation(nlocs, in_data, nlat, nlon, lmax_in, lsq, interpolated_values, lambda, sv)
     ! Interpolates in_data onto a sphere using spherical harmonics
     ! see documentation for algorithm and its derivation
     !
     ! inputs:
     !   nlocs -- integer --
     !     the number of locations. This is used to enforce that the first dimension
-    !     of locs is 2
+    !     of in_data is 3
     !   in_data -- real, dimension(3,nlocs) -- 
     !     in_data(1:2,i) should be the location (theta, phi) 
     !       with 0 < theta < 2*pi, 0 < phi < pi
@@ -28,6 +28,15 @@ SUBROUTINE interpolation(nlocs, in_data, nlat, nlon, interpolated_values, lambda
     !       number of latitudes to use
     !   nlon -- integer --
     !       number of longitudes to use
+    !   lmax_in -- integer -- 
+    !     maximum degree of spherical harmonics.
+    !     if lmax < 1, then defaults to CEILING(sqrt(2*nlocs))
+    !     Default value garuntees at least twice as many basis functions
+    !     as data points are used - giving plenty of high frequency
+    !     representations which the interpolation algorithm will smooth out
+    !   lsq -- logical -- 
+    !     if .true. uses a least squares fit rather than the algorithm
+    !     to perform the analysis
     !
     ! outputs:
     !   interpolated_values -- real, dimension(0:nlat-1, 0:nlon-1) --
@@ -38,51 +47,68 @@ SUBROUTINE interpolation(nlocs, in_data, nlat, nlon, interpolated_values, lambda
     !     NOTE: Since i=0 and i=nlat correspond to the poles,
     !         V is constant for all these values
     !   lambda -- real --
-    !     value of lambda for the result. See documentation.
-    !     Recall the following meaning for lambda:
-    !        0  -- harm. sph. representation result is constant (mean)
-    !        1  -- harm. sph. representation balances lsq and constant fits
-    !       inf -- harm. sph. representation is least squares fit
+    !     If least_squares is .false., then
+    !       value of lambda for the result. See documentation.
+    !       Recall the following meaning for lambda:
+    !          0  -- harm. sph. representation result is constant (mean)
+    !          1  -- harm. sph. representation balances lsq and constant fits
+    !         inf -- harm. sph. representation is least squares fit
+    !     If least_squares is .true., then this is the rank of M
+    !   sv -- real, allocatable, dimension(rank(M)) --
+    !     If least_squares is .true., then
+    !       singular values of vandermonde-like matrix
+    !     otherwise an unallocated array
     !
     !   optional inputs:
-    !   lmax -- integer -- CEILING(sqrt(2*nlocs)) --
-    !     maximum degree of spherical harmonics
-    !     Default value garuntees at least twice as many basis functions
-    !     as data points are used - giving plenty of high frequency
-    !     representations which the interpolation algorithm will smooth out
 
     ! inputs
     integer, intent(in) :: nlocs
     real, dimension(3,nlocs), intent(in) :: in_data
     integer, intent(in) :: nlat
     integer, intent(in) :: nlon
-    integer, optional, intent(in) :: lmax_in
+    integer, intent(in) :: lmax_in
+    logical, intent(in) :: lsq
 
     ! outputs
-    real, intent(out) :: lambda
     real, dimension(0:nlat-1, 0:nlon-1), intent(out) :: interpolated_values
+    real, intent(out) :: lambda
+    real, allocatable, dimension(:), intent(out) :: sv
 
     ! work variables
     real, allocatable, dimension(:, :) :: M_T
     real, allocatable, dimension(:) :: coef
+    integer :: info
+    integer :: rank
     integer :: lmax
 
     ! define default lmax if needed
-    ! TODO: figure out a good default value for lmax
-    lmax = CEILING(SQRT(2.0*nlocs))
     ! This will allow a lot of high frequency noise which should
     ! get smoothed out by algorithm
-    if (present(lmax_in)) lmax = lmax_in
+    if (lmax_in .LE. 0) then
+        ! TODO: figure out a good default value for lmax
+        lmax = CEILING(SQRT(2.0*nlocs))
+    else
+        lmax = lmax_in
+    endif
     
 
     ! perform interpolation
     M_T = form_vand_sph_mat(lmax, in_data(1:2,:), nlocs)
-    call analysis(M_T, in_data(3,:), coef, lambda)
+    if (lsq) then
+        call analysis_lsq(M_T, in_data(3,:), coef, sv, rank, info)
+        if (info .NE. 0) then
+            write(*,*) 'svd failed with info = ', info
+        endif
+        lambda = rank
+    else
+        call analysis(M_T, in_data(3,:), coef, lambda)
+    endif
+
     interpolated_values = synthesis(nlat, nlon, coef)
 
 END SUBROUTINE interpolation
 
-SUBROUTINE geo_interpolation(nlocs, in_data, nlat, nlon, interpolated_values, lambda, lmax_in)
+SUBROUTINE geo_interpolation(nlocs, in_data, nlat, nlon, lmax_in, lsq, interpolated_values, lambda, sv)
     ! Interpolates in_data onto a sphere using spherical harmonics
     ! see documentation for algorithm and its derivation
     !
@@ -101,6 +127,15 @@ SUBROUTINE geo_interpolation(nlocs, in_data, nlat, nlon, interpolated_values, la
     !       number of latitudes to use
     !   nlon -- integer --
     !       number of longitudes to use
+    !   lmax_in -- integer -- 
+    !     maximum degree of spherical harmonics.
+    !     if lmax < 1, then defaults to CEILING(sqrt(2*nlocs))
+    !     Default value garuntees at least twice as many basis functions
+    !     as data points are used - giving plenty of high frequency
+    !     representations which the interpolation algorithm will smooth out
+    !   lsq -- logical -- 
+    !     if .true. uses a least squares fit rather than the algorithm
+    !     to perform the analysis
     !
     ! outputs:
     !   interpolated_values -- real, dimension(0:nlat-1, 0:nlon-1) --
@@ -111,28 +146,30 @@ SUBROUTINE geo_interpolation(nlocs, in_data, nlat, nlon, interpolated_values, la
     !     NOTE: Since i=0 and i=nlat correspond to the poles,
     !         V is constant for all these values
     !   lambda -- real --
-    !     value of lambda for the result. See documentation.
-    !     Recall the following meaning for lambda:
-    !        0  -- harm. sph. representation result is constant (mean)
-    !        1  -- harm. sph. representation balances lsq and constant fits
-    !       inf -- harm. sph. representation is least squares fit
-    !
-    !   optional inputs:
-    !     lmax -- integer -- 2*nlocs --
-    !       maximum degree of spherical harmonics
-    !       The default value should capture lots of high frequencies
-    !       which the interpolation algorithm will smooth out
+    !     If least_squares is .false., then
+    !       value of lambda for the result. See documentation.
+    !       Recall the following meaning for lambda:
+    !          0  -- harm. sph. representation result is constant (mean)
+    !          1  -- harm. sph. representation balances lsq and constant fits
+    !         inf -- harm. sph. representation is least squares fit
+    !     If least_squares is .true., then this is the rank of M
+    !   sv -- real, allocatable, dimension(rank(M)) --
+    !     If least_squares is .true., then
+    !       singular values of vandermonde-like matrix
+    !     otherwise an unallocated array
 
     ! inputs
     integer, intent(in) :: nlocs
     real, dimension(3,nlocs), intent(in) :: in_data
     integer, intent(in) :: nlat
     integer, intent(in) :: nlon
-    integer, optional, intent(in) :: lmax_in
+    integer, intent(in) :: lmax_in
+    logical, intent(in) :: lsq
 
     ! outputs
     real, intent(out) :: lambda
     real, dimension(0:nlat-1, 0:nlon-1), intent(out) :: interpolated_values
+    real, allocatable, dimension(:), intent(out) :: sv
 
     ! work variables
     real, dimension(3,nlocs) :: in_data_adj
@@ -143,7 +180,7 @@ SUBROUTINE geo_interpolation(nlocs, in_data, nlat, nlon, interpolated_values, la
     in_data_adj(2,:) = (90.0 - in_data(1,:)) * pi / 180.0
 
     ! perform interpolation
-    call interpolation(nlocs, in_data_adj, nlat, nlon, interpolated_values, lambda, lmax_in)
+    call interpolation(nlocs, in_data_adj, nlat, nlon, lmax_in, lsq, interpolated_values, lambda, sv)
 
 END SUBROUTINE geo_interpolation
 
