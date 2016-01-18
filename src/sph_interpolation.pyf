@@ -1,0 +1,37 @@
+!    -*- f90 -*-
+! Note: the context of this file is case sensitive.
+
+python module SPH_INTERPOLATION ! in 
+    interface  ! in :SPH_INTERPOLATION
+        module sph_interpolation ! in :SPH_INTERPOLATION:sph_interpolation.f90
+            use sph_synthesis
+            use vand_sph
+            use sph_analysis
+            subroutine interpolation(nlocs,in_data,nlat,nlon,lmax_in,lsq,interpolated_values,lambda,sv) ! in :SPH_INTERPOLATION:sph_interpolation.f90:sph_interpolation
+                integer, optional,intent(in),check(shape(in_data,1)==nlocs),depend(in_data) :: nlocs=shape(in_data,1)
+                real dimension(3,nlocs),intent(in) :: in_data
+                integer intent(in) :: nlat
+                integer intent(in) :: nlon
+                integer, optional, intent(in) :: lmax_in = -1
+                logical, optional, intent(in) :: lsq = 1==0
+                real dimension(nlat,nlon),intent(out),depend(nlat,nlon) :: interpolated_values
+                real intent(out) :: lambda
+                real, allocatable,dimension(:),intent(out) :: sv
+            end subroutine interpolation
+            subroutine geo_interpolation(nlocs,in_data,nlat,nlon,lmax_in,lsq,interpolated_values,lambda,sv) ! in :SPH_INTERPOLATION:sph_interpolation.f90:sph_interpolation
+                integer, optional,intent(in),check(shape(in_data,1)==nlocs),depend(in_data) :: nlocs=shape(in_data,1)
+                real dimension(3,nlocs),intent(in) :: in_data
+                integer intent(in) :: nlat
+                integer intent(in) :: nlon
+                integer, optional,intent(in) :: lmax_in = -1
+                logical, optional,intent(in) :: lsq = 1 == 0
+                real dimension(nlat,nlon),intent(out),depend(nlat,nlon) :: interpolated_values
+                real intent(out) :: lambda
+                real, allocatable,dimension(:),intent(out) :: sv
+            end subroutine geo_interpolation
+        end module sph_interpolation
+    end interface 
+end python module SPH_INTERPOLATION
+
+! This file was auto-generated with f2py (version:2).
+! See http://cens.ioc.ee/projects/f2py2e/
