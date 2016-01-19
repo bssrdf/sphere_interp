@@ -54,9 +54,9 @@ SUBROUTINE interpolation(nlocs, in_data, nlat, nlon, lmax_in, lsq, interpolated_
     !          1  -- harm. sph. representation balances lsq and constant fits
     !         inf -- harm. sph. representation is least squares fit
     !     If least_squares is .true., then this is the rank of M
-    !   sv -- real, allocatable, dimension(rank(M)) --
+    !   sv -- real, dimension(nlocs) --
     !     If least_squares is .true., then
-    !       singular values of vandermonde-like matrix
+    !       singular values of vandermonde-like matrix, extra values are set to 0
     !     otherwise an unallocated array
     !
     !   optional inputs:
@@ -72,7 +72,7 @@ SUBROUTINE interpolation(nlocs, in_data, nlat, nlon, lmax_in, lsq, interpolated_
     ! outputs
     real, dimension(0:nlat-1, 0:nlon-1), intent(out) :: interpolated_values
     real, intent(out) :: lambda
-    real, allocatable, dimension(:), intent(out) :: sv
+    real, dimension(nlocs), intent(out) :: sv
 
     ! work variables
     real, allocatable, dimension(:, :) :: M_T
@@ -80,6 +80,7 @@ SUBROUTINE interpolation(nlocs, in_data, nlat, nlon, lmax_in, lsq, interpolated_
     integer :: info
     integer :: rank
     integer :: lmax
+    real, allocatable, dimension(:) :: sv_tmp
 
     ! define default lmax if needed
     ! This will allow a lot of high frequency noise which should
@@ -91,15 +92,17 @@ SUBROUTINE interpolation(nlocs, in_data, nlat, nlon, lmax_in, lsq, interpolated_
         lmax = lmax_in
     endif
     
-
+    
     ! perform interpolation
+    sv = 0
     M_T = form_vand_sph_mat(lmax, in_data(1:2,:), nlocs)
     if (lsq) then
-        call analysis_lsq(M_T, in_data(3,:), coef, sv, rank, info)
+        call analysis_lsq(M_T, in_data(3,:), coef, sv_tmp, rank, info)
         if (info .NE. 0) then
             write(*,*) 'svd failed with info = ', info
         endif
         lambda = rank
+        sv(1:size(sv_tmp)) = sv(:)
     else
         call analysis(M_T, in_data(3,:), coef, lambda)
     endif
@@ -155,7 +158,7 @@ SUBROUTINE geo_interpolation(nlocs, in_data, nlat, nlon, lmax_in, lsq, interpola
     !     If least_squares is .true., then this is the rank of M
     !   sv -- real, allocatable, dimension(rank(M)) --
     !     If least_squares is .true., then
-    !       singular values of vandermonde-like matrix
+    !       singular values of vandermonde-like matrix, extra values are set to 0
     !     otherwise an unallocated array
 
     ! inputs
@@ -169,7 +172,7 @@ SUBROUTINE geo_interpolation(nlocs, in_data, nlat, nlon, lmax_in, lsq, interpola
     ! outputs
     real, intent(out) :: lambda
     real, dimension(0:nlat-1, 0:nlon-1), intent(out) :: interpolated_values
-    real, allocatable, dimension(:), intent(out) :: sv
+    real, dimension(nlocs), intent(out) :: sv
 
     ! work variables
     real, dimension(3,nlocs) :: in_data_adj
